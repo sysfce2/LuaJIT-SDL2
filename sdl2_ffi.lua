@@ -58,8 +58,9 @@ int SDL_SetMemoryFunctions(SDL_malloc_func malloc_func,
 int SDL_GetNumAllocations(void);
 char * SDL_getenv(const char *name);
 int SDL_setenv(const char *name, const char *value, int overwrite);
-void SDL_qsort(void *base, size_t nmemb, size_t size, int ( *compare) (const void *, const void *));
-void * SDL_bsearch(const void *key, const void *base, size_t nmemb, size_t size, int ( *compare) (const void *, const void *));
+typedef int ( *SDL_CompareCallback)(const void *, const void *);
+void SDL_qsort(void *base, size_t nmemb, size_t size, SDL_CompareCallback compare);
+void * SDL_bsearch(const void *key, const void *base, size_t nmemb, size_t size, SDL_CompareCallback compare);
 int SDL_abs(int x);
 int SDL_isalpha(int x);
 int SDL_isalnum(int x);
@@ -223,7 +224,9 @@ void SDL_AtomicLock(SDL_SpinLock *lock);
 void SDL_AtomicUnlock(SDL_SpinLock *lock);
 void SDL_MemoryBarrierReleaseFunction(void);
 void SDL_MemoryBarrierAcquireFunction(void);
-typedef struct { int value; } SDL_atomic_t;
+typedef struct SDL_atomic_t {
+    int value;
+} SDL_atomic_t;
 SDL_bool SDL_AtomicCAS(SDL_atomic_t *a, int oldval, int newval);
 int SDL_AtomicSet(SDL_atomic_t *a, int v);
 int SDL_AtomicGet(SDL_atomic_t *a);
@@ -274,7 +277,7 @@ struct SDL_Thread;
 typedef struct SDL_Thread SDL_Thread;
 typedef unsigned long SDL_threadID;
 typedef unsigned int SDL_TLSID;
-typedef enum {
+typedef enum SDL_ThreadPriority {
     SDL_THREAD_PRIORITY_LOW,
     SDL_THREAD_PRIORITY_NORMAL,
     SDL_THREAD_PRIORITY_HIGH,
@@ -293,7 +296,8 @@ void SDL_WaitThread(SDL_Thread * thread, int *status);
 void SDL_DetachThread(SDL_Thread * thread);
 SDL_TLSID SDL_TLSCreate(void);
 void * SDL_TLSGet(SDL_TLSID id);
-int SDL_TLSSet(SDL_TLSID id, const void *value, void ( *destructor)(void*));
+typedef void ( *SDL_TLSDestructorCallback)(void*);
+int SDL_TLSSet(SDL_TLSID id, const void *value, SDL_TLSDestructorCallback destructor);
 void SDL_TLSCleanup(void);
 typedef struct SDL_RWops
 {
@@ -821,7 +825,7 @@ SDL_bool SDL_IntersectFRectAndLine(const SDL_FRect *
                                                            rect, float *X1,
                                                            float *Y1, float *X2,
                                                            float *Y2);
-typedef enum
+typedef enum SDL_BlendMode
 {
     SDL_BLENDMODE_NONE = 0x00000000,
     SDL_BLENDMODE_BLEND = 0x00000001,
@@ -830,7 +834,7 @@ typedef enum
     SDL_BLENDMODE_MUL = 0x00000008,
     SDL_BLENDMODE_INVALID = 0x7FFFFFFF
 } SDL_BlendMode;
-typedef enum
+typedef enum SDL_BlendOperation
 {
     SDL_BLENDOPERATION_ADD = 0x1,
     SDL_BLENDOPERATION_SUBTRACT = 0x2,
@@ -838,7 +842,7 @@ typedef enum
     SDL_BLENDOPERATION_MINIMUM = 0x4,
     SDL_BLENDOPERATION_MAXIMUM = 0x5
 } SDL_BlendOperation;
-typedef enum
+typedef enum SDL_BlendFactor
 {
     SDL_BLENDFACTOR_ZERO = 0x1,
     SDL_BLENDFACTOR_ONE = 0x2,
@@ -874,7 +878,7 @@ typedef struct SDL_Surface
 } SDL_Surface;
 typedef int ( *SDL_blit) (struct SDL_Surface * src, SDL_Rect * srcrect,
                                  struct SDL_Surface * dst, SDL_Rect * dstrect);
-typedef enum
+typedef enum SDL_YUV_CONVERSION_MODE
 {
     SDL_YUV_CONVERSION_JPEG,
     SDL_YUV_CONVERSION_BT601,
@@ -973,7 +977,7 @@ int SDL_LowerBlitScaled
 void SDL_SetYUVConversionMode(SDL_YUV_CONVERSION_MODE mode);
 SDL_YUV_CONVERSION_MODE SDL_GetYUVConversionMode(void);
 SDL_YUV_CONVERSION_MODE SDL_GetYUVConversionModeForResolution(int width, int height);
-typedef struct
+typedef struct SDL_DisplayMode
 {
     Uint32 format;
     int w;
@@ -982,7 +986,7 @@ typedef struct
     void *driverdata;
 } SDL_DisplayMode;
 typedef struct SDL_Window SDL_Window;
-typedef enum
+typedef enum SDL_WindowFlags
 {
     SDL_WINDOW_FULLSCREEN = 0x00000001,
     SDL_WINDOW_OPENGL = 0x00000002,
@@ -1009,7 +1013,7 @@ typedef enum
     SDL_WINDOW_METAL = 0x20000000,
     SDL_WINDOW_INPUT_GRABBED = SDL_WINDOW_MOUSE_GRABBED
 } SDL_WindowFlags;
-typedef enum
+typedef enum SDL_WindowEventID
 {
     SDL_WINDOWEVENT_NONE,
     SDL_WINDOWEVENT_SHOWN,
@@ -1031,7 +1035,7 @@ typedef enum
     SDL_WINDOWEVENT_ICCPROF_CHANGED,
     SDL_WINDOWEVENT_DISPLAY_CHANGED
 } SDL_WindowEventID;
-typedef enum
+typedef enum SDL_DisplayEventID
 {
     SDL_DISPLAYEVENT_NONE,
     SDL_DISPLAYEVENT_ORIENTATION,
@@ -1039,7 +1043,7 @@ typedef enum
     SDL_DISPLAYEVENT_DISCONNECTED,
     SDL_DISPLAYEVENT_MOVED
 } SDL_DisplayEventID;
-typedef enum
+typedef enum SDL_DisplayOrientation
 {
     SDL_ORIENTATION_UNKNOWN,
     SDL_ORIENTATION_LANDSCAPE,
@@ -1047,14 +1051,14 @@ typedef enum
     SDL_ORIENTATION_PORTRAIT,
     SDL_ORIENTATION_PORTRAIT_FLIPPED
 } SDL_DisplayOrientation;
-typedef enum
+typedef enum SDL_FlashOperation
 {
     SDL_FLASH_CANCEL,
     SDL_FLASH_BRIEFLY,
     SDL_FLASH_UNTIL_FOCUSED
 } SDL_FlashOperation;
 typedef void *SDL_GLContext;
-typedef enum
+typedef enum SDL_GLattr
 {
     SDL_GL_RED_SIZE,
     SDL_GL_GREEN_SIZE,
@@ -1085,25 +1089,25 @@ typedef enum
     SDL_GL_CONTEXT_NO_ERROR,
     SDL_GL_FLOATBUFFERS
 } SDL_GLattr;
-typedef enum
+typedef enum SDL_GLprofile
 {
     SDL_GL_CONTEXT_PROFILE_CORE = 0x0001,
     SDL_GL_CONTEXT_PROFILE_COMPATIBILITY = 0x0002,
     SDL_GL_CONTEXT_PROFILE_ES = 0x0004
 } SDL_GLprofile;
-typedef enum
+typedef enum SDL_GLcontextFlag
 {
     SDL_GL_CONTEXT_DEBUG_FLAG = 0x0001,
     SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG = 0x0002,
     SDL_GL_CONTEXT_ROBUST_ACCESS_FLAG = 0x0004,
     SDL_GL_CONTEXT_RESET_ISOLATION_FLAG = 0x0008
 } SDL_GLcontextFlag;
-typedef enum
+typedef enum SDL_GLcontextReleaseFlag
 {
     SDL_GL_CONTEXT_RELEASE_BEHAVIOR_NONE = 0x0000,
     SDL_GL_CONTEXT_RELEASE_BEHAVIOR_FLUSH = 0x0001
 } SDL_GLcontextReleaseFlag;
-typedef enum
+typedef enum SDL_GLContextResetNotification
 {
     SDL_GL_CONTEXT_RESET_NO_NOTIFICATION = 0x0000,
     SDL_GL_CONTEXT_RESET_LOSE_CONTEXT = 0x0001
@@ -1219,7 +1223,7 @@ int SDL_GetWindowGammaRamp(SDL_Window * window,
                                                    Uint16 * red,
                                                    Uint16 * green,
                                                    Uint16 * blue);
-typedef enum
+typedef enum SDL_HitTestResult
 {
     SDL_HITTEST_NORMAL,
     SDL_HITTEST_DRAGGABLE,
@@ -1263,7 +1267,7 @@ int SDL_GL_SetSwapInterval(int interval);
 int SDL_GL_GetSwapInterval(void);
 void SDL_GL_SwapWindow(SDL_Window * window);
 void SDL_GL_DeleteContext(SDL_GLContext context);
-typedef enum
+typedef enum SDL_Scancode
 {
     SDL_SCANCODE_UNKNOWN = 0,
     SDL_SCANCODE_A = 4,
@@ -1515,7 +1519,7 @@ typedef enum
     SDL_NUM_SCANCODES = 512
 } SDL_Scancode;
 typedef Sint32 SDL_Keycode;
-typedef enum
+typedef enum SDL_KeyCode
 {
     SDLK_UNKNOWN = 0,
     SDLK_RETURN = '\r',
@@ -1774,7 +1778,7 @@ typedef enum
     SDLK_CALL = (SDL_SCANCODE_CALL | (1<<30)),
     SDLK_ENDCALL = (SDL_SCANCODE_ENDCALL | (1<<30))
 } SDL_KeyCode;
-typedef enum
+typedef enum SDL_Keymod
 {
     KMOD_NONE = 0x0000,
     KMOD_LSHIFT = 0x0001,
@@ -1822,7 +1826,7 @@ void SDL_SetTextInputRect(const SDL_Rect *rect);
 SDL_bool SDL_HasScreenKeyboardSupport(void);
 SDL_bool SDL_IsScreenKeyboardShown(SDL_Window *window);
 typedef struct SDL_Cursor SDL_Cursor;
-typedef enum
+typedef enum SDL_SystemCursor
 {
     SDL_SYSTEM_CURSOR_ARROW,
     SDL_SYSTEM_CURSOR_IBEAM,
@@ -1838,7 +1842,7 @@ typedef enum
     SDL_SYSTEM_CURSOR_HAND,
     SDL_NUM_SYSTEM_CURSORS
 } SDL_SystemCursor;
-typedef enum
+typedef enum SDL_MouseWheelDirection
 {
     SDL_MOUSEWHEEL_NORMAL,
     SDL_MOUSEWHEEL_FLIPPED
@@ -1866,7 +1870,7 @@ SDL_Cursor * SDL_GetCursor(void);
 SDL_Cursor * SDL_GetDefaultCursor(void);
 void SDL_FreeCursor(SDL_Cursor * cursor);
 int SDL_ShowCursor(int toggle);
-typedef struct {
+typedef struct SDL_GUID {
     Uint8 data[16];
 } SDL_GUID;
 void SDL_GUIDToString(SDL_GUID guid, char *pszGUID, int cbGUID);
@@ -1988,7 +1992,7 @@ SDL_JoystickPowerLevel SDL_JoystickCurrentPowerLevel(SDL_Joystick *joystick);
 struct _SDL_Sensor;
 typedef struct _SDL_Sensor SDL_Sensor;
 typedef Sint32 SDL_SensorID;
-typedef enum
+typedef enum SDL_SensorType
 {
     SDL_SENSOR_INVALID = -1,
     SDL_SENSOR_UNKNOWN,
@@ -2018,7 +2022,7 @@ void SDL_SensorClose(SDL_Sensor *sensor);
 void SDL_SensorUpdate(void);
 struct _SDL_GameController;
 typedef struct _SDL_GameController SDL_GameController;
-typedef enum
+typedef enum SDL_GameControllerType
 {
     SDL_CONTROLLER_TYPE_UNKNOWN = 0,
     SDL_CONTROLLER_TYPE_XBOX360,
@@ -2036,7 +2040,7 @@ typedef enum
     SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_PAIR,
     SDL_CONTROLLER_TYPE_MAX
 } SDL_GameControllerType;
-typedef enum
+typedef enum SDL_GameControllerBindType
 {
     SDL_CONTROLLER_BINDTYPE_NONE = 0,
     SDL_CONTROLLER_BINDTYPE_BUTTON,
@@ -2085,7 +2089,7 @@ SDL_bool SDL_GameControllerGetAttached(SDL_GameController *gamecontroller);
 SDL_Joystick * SDL_GameControllerGetJoystick(SDL_GameController *gamecontroller);
 int SDL_GameControllerEventState(int state);
 void SDL_GameControllerUpdate(void);
-typedef enum
+typedef enum SDL_GameControllerAxis
 {
     SDL_CONTROLLER_AXIS_INVALID = -1,
     SDL_CONTROLLER_AXIS_LEFTX,
@@ -2105,7 +2109,7 @@ SDL_bool
 SDL_GameControllerHasAxis(SDL_GameController *gamecontroller, SDL_GameControllerAxis axis);
 Sint16
 SDL_GameControllerGetAxis(SDL_GameController *gamecontroller, SDL_GameControllerAxis axis);
-typedef enum
+typedef enum SDL_GameControllerButton
 {
     SDL_CONTROLLER_BUTTON_INVALID = -1,
     SDL_CONTROLLER_BUTTON_A,
@@ -2186,7 +2190,7 @@ int SDL_RecordGesture(SDL_TouchID touchId);
 int SDL_SaveAllDollarTemplates(SDL_RWops *dst);
 int SDL_SaveDollarTemplate(SDL_GestureID gestureId,SDL_RWops *dst);
 int SDL_LoadDollarTemplates(SDL_TouchID touchId, SDL_RWops *src);
-typedef enum
+typedef enum SDL_EventType
 {
     SDL_FIRSTEVENT = 0,
     SDL_QUIT = 0x100,
@@ -2577,7 +2581,7 @@ typedef union SDL_Event
     Uint8 padding[sizeof(void *) <= 8 ? 56 : sizeof(void *) == 16 ? 64 : 3 * sizeof(void *)];
 } SDL_Event;
 void SDL_PumpEvents(void);
-typedef enum
+typedef enum SDL_eventaction
 {
     SDL_ADDEVENT,
     SDL_PEEKEVENT,
@@ -2779,7 +2783,7 @@ Uint32 SDL_hid_device_change_count(void);
 SDL_hid_device_info * SDL_hid_enumerate(unsigned short vendor_id, unsigned short product_id);
 void SDL_hid_free_enumeration(SDL_hid_device_info *devs);
 SDL_hid_device * SDL_hid_open(unsigned short vendor_id, unsigned short product_id, const wchar_t *serial_number);
-SDL_hid_device * SDL_hid_open_path(const char *path, int bExclusive );
+SDL_hid_device * SDL_hid_open_path(const char *path, int bExclusive);
 int SDL_hid_write(SDL_hid_device *dev, const unsigned char *data, size_t length);
 int SDL_hid_read_timeout(SDL_hid_device *dev, unsigned char *data, size_t length, int milliseconds);
 int SDL_hid_read(SDL_hid_device *dev, unsigned char *data, size_t length);
@@ -2792,7 +2796,7 @@ int SDL_hid_get_product_string(SDL_hid_device *dev, wchar_t *string, size_t maxl
 int SDL_hid_get_serial_number_string(SDL_hid_device *dev, wchar_t *string, size_t maxlen);
 int SDL_hid_get_indexed_string(SDL_hid_device *dev, int string_index, wchar_t *string, size_t maxlen);
 void SDL_hid_ble_scan(SDL_bool active);
-typedef enum
+typedef enum SDL_HintPriority
 {
     SDL_HINT_DEFAULT,
     SDL_HINT_NORMAL,
@@ -2819,7 +2823,7 @@ void * SDL_LoadObject(const char *sofile);
 void * SDL_LoadFunction(void *handle,
                                                const char *name);
 void SDL_UnloadObject(void *handle);
-typedef enum
+typedef enum SDL_LogCategory
 {
     SDL_LOG_CATEGORY_APPLICATION,
     SDL_LOG_CATEGORY_ERROR,
@@ -2842,7 +2846,7 @@ typedef enum
     SDL_LOG_CATEGORY_RESERVED10,
     SDL_LOG_CATEGORY_CUSTOM
 } SDL_LogCategory;
-typedef enum
+typedef enum SDL_LogPriority
 {
     SDL_LOG_PRIORITY_VERBOSE = 1,
     SDL_LOG_PRIORITY_DEBUG,
@@ -2873,7 +2877,7 @@ void SDL_LogMessageV(int category,
 typedef void ( *SDL_LogOutputFunction)(void *userdata, int category, SDL_LogPriority priority, const char *message);
 void SDL_LogGetOutputFunction(SDL_LogOutputFunction *callback, void **userdata);
 void SDL_LogSetOutputFunction(SDL_LogOutputFunction callback, void *userdata);
-typedef enum
+typedef enum SDL_MessageBoxFlags
 {
     SDL_MESSAGEBOX_ERROR = 0x00000010,
     SDL_MESSAGEBOX_WARNING = 0x00000020,
@@ -2881,22 +2885,22 @@ typedef enum
     SDL_MESSAGEBOX_BUTTONS_LEFT_TO_RIGHT = 0x00000080,
     SDL_MESSAGEBOX_BUTTONS_RIGHT_TO_LEFT = 0x00000100
 } SDL_MessageBoxFlags;
-typedef enum
+typedef enum SDL_MessageBoxButtonFlags
 {
     SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT = 0x00000001,
     SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT = 0x00000002
 } SDL_MessageBoxButtonFlags;
-typedef struct
+typedef struct SDL_MessageBoxButtonData
 {
     Uint32 flags;
     int buttonid;
     const char * text;
 } SDL_MessageBoxButtonData;
-typedef struct
+typedef struct SDL_MessageBoxColor
 {
     Uint8 r, g, b;
 } SDL_MessageBoxColor;
-typedef enum
+typedef enum SDL_MessageBoxColorType
 {
     SDL_MESSAGEBOX_COLOR_BACKGROUND,
     SDL_MESSAGEBOX_COLOR_TEXT,
@@ -2905,11 +2909,11 @@ typedef enum
     SDL_MESSAGEBOX_COLOR_BUTTON_SELECTED,
     SDL_MESSAGEBOX_COLOR_MAX
 } SDL_MessageBoxColorType;
-typedef struct
+typedef struct SDL_MessageBoxColorScheme
 {
     SDL_MessageBoxColor colors[SDL_MESSAGEBOX_COLOR_MAX];
 } SDL_MessageBoxColorScheme;
-typedef struct
+typedef struct SDL_MessageBoxData
 {
     Uint32 flags;
     SDL_Window *window;
@@ -2927,7 +2931,7 @@ void SDL_Metal_DestroyView(SDL_MetalView view);
 void * SDL_Metal_GetLayer(SDL_MetalView view);
 void SDL_Metal_GetDrawableSize(SDL_Window* window, int *w,
                                                        int *h);
-typedef enum
+typedef enum SDL_PowerState
 {
     SDL_POWERSTATE_UNKNOWN,
     SDL_POWERSTATE_ON_BATTERY,
@@ -2936,7 +2940,7 @@ typedef enum
     SDL_POWERSTATE_CHARGED
 } SDL_PowerState;
 SDL_PowerState SDL_GetPowerInfo(int *seconds, int *percent);
-typedef enum
+typedef enum SDL_RendererFlags
 {
     SDL_RENDERER_SOFTWARE = 0x00000001,
     SDL_RENDERER_ACCELERATED = 0x00000002,
@@ -2958,25 +2962,25 @@ typedef struct SDL_Vertex
     SDL_Color color;
     SDL_FPoint tex_coord;
 } SDL_Vertex;
-typedef enum
+typedef enum SDL_ScaleMode
 {
     SDL_ScaleModeNearest,
     SDL_ScaleModeLinear,
     SDL_ScaleModeBest
 } SDL_ScaleMode;
-typedef enum
+typedef enum SDL_TextureAccess
 {
     SDL_TEXTUREACCESS_STATIC,
     SDL_TEXTUREACCESS_STREAMING,
     SDL_TEXTUREACCESS_TARGET
 } SDL_TextureAccess;
-typedef enum
+typedef enum SDL_TextureModulate
 {
     SDL_TEXTUREMODULATE_NONE = 0x00000000,
     SDL_TEXTUREMODULATE_COLOR = 0x00000001,
     SDL_TEXTUREMODULATE_ALPHA = 0x00000002
 } SDL_TextureModulate;
-typedef enum
+typedef enum SDL_RendererFlip
 {
     SDL_FLIP_NONE = 0x00000000,
     SDL_FLIP_HORIZONTAL = 0x00000001,
@@ -3426,7 +3430,6 @@ static const int SDL_HINT_DISPLAY_USABLE_BOUNDS = "SDL_DISPLAY_USABLE_BOUNDS";
 static const int SDL_HINT_EMSCRIPTEN_ASYNCIFY = "SDL_EMSCRIPTEN_ASYNCIFY";
 static const int SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT = "SDL_EMSCRIPTEN_KEYBOARD_ELEMENT";
 static const int SDL_HINT_ENABLE_SCREEN_KEYBOARD = "SDL_ENABLE_SCREEN_KEYBOARD";
-static const int SDL_HINT_ENABLE_STEAM_CONTROLLERS = "SDL_ENABLE_STEAM_CONTROLLERS";
 static const int SDL_HINT_EVENT_LOGGING = "SDL_EVENT_LOGGING";
 static const int SDL_HINT_FORCE_RAISEWINDOW = "SDL_HINT_FORCE_RAISEWINDOW";
 static const int SDL_HINT_FRAMEBUFFER_ACCELERATION = "SDL_FRAMEBUFFER_ACCELERATION";
@@ -3496,6 +3499,7 @@ static const int SDL_HINT_JOYSTICK_WHEEL_DEVICES_EXCLUDED = "SDL_JOYSTICK_WHEEL_
 static const int SDL_HINT_JOYSTICK_ZERO_CENTERED_DEVICES = "SDL_JOYSTICK_ZERO_CENTERED_DEVICES";
 static const int SDL_HINT_KMSDRM_REQUIRE_DRM_MASTER = "SDL_KMSDRM_REQUIRE_DRM_MASTER";
 static const int SDL_HINT_JOYSTICK_DEVICE = "SDL_JOYSTICK_DEVICE";
+static const int SDL_HINT_JOYSTICK_HAPTIC_AXES = "SDL_JOYSTICK_HAPTIC_AXES";
 static const int SDL_HINT_LINUX_DIGITAL_HATS = "SDL_LINUX_DIGITAL_HATS";
 static const int SDL_HINT_LINUX_HAT_DEADZONES = "SDL_LINUX_HAT_DEADZONES";
 static const int SDL_HINT_LINUX_JOYSTICK_CLASSIC = "SDL_LINUX_JOYSTICK_CLASSIC";
@@ -3514,6 +3518,7 @@ static const int SDL_HINT_MOUSE_RELATIVE_SCALING = "SDL_MOUSE_RELATIVE_SCALING";
 static const int SDL_HINT_MOUSE_RELATIVE_SPEED_SCALE = "SDL_MOUSE_RELATIVE_SPEED_SCALE";
 static const int SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE = "SDL_MOUSE_RELATIVE_SYSTEM_SCALE";
 static const int SDL_HINT_MOUSE_RELATIVE_WARP_MOTION = "SDL_MOUSE_RELATIVE_WARP_MOTION";
+static const int SDL_HINT_MOUSE_RELATIVE_CURSOR_VISIBLE = "SDL_MOUSE_RELATIVE_CURSOR_VISIBLE";
 static const int SDL_HINT_MOUSE_TOUCH_EVENTS = "SDL_MOUSE_TOUCH_EVENTS";
 static const int SDL_HINT_MOUSE_AUTO_CAPTURE = "SDL_MOUSE_AUTO_CAPTURE";
 static const int SDL_HINT_NO_SIGNAL_HANDLERS = "SDL_NO_SIGNAL_HANDLERS";
@@ -3599,13 +3604,14 @@ static const int SDL_HINT_AUDIODRIVER = "SDL_AUDIODRIVER";
 static const int SDL_HINT_KMSDRM_DEVICE_INDEX = "SDL_KMSDRM_DEVICE_INDEX";
 static const int SDL_HINT_TRACKPAD_IS_TOUCH_ONLY = "SDL_TRACKPAD_IS_TOUCH_ONLY";
 static const int SDL_HINT_SHUTDOWN_DBUS_ON_QUIT = "SDL_SHUTDOWN_DBUS_ON_QUIT";
+static const int SDL_HINT_APPLE_RWFROMFILE_USE_RESOURCES = "SDL_APPLE_RWFROMFILE_USE_RESOURCES";
 static const int SDL_MAX_LOG_MESSAGE = 4096;
 static const int SDL_NONSHAPEABLE_WINDOW = -1;
 static const int SDL_INVALID_SHAPE_ARGUMENT = -2;
 static const int SDL_WINDOW_LACKS_SHAPE = -3;
 static const int SDL_MAJOR_VERSION = 2;
-static const int SDL_MINOR_VERSION = 30;
-static const int SDL_PATCHLEVEL = 3;
+static const int SDL_MINOR_VERSION = 32;
+static const int SDL_PATCHLEVEL = 10;
 static const int SDL_INIT_TIMER = 0x00000001u;
 static const int SDL_INIT_AUDIO = 0x00000010u;
 static const int SDL_INIT_VIDEO = 0x00000020u;
